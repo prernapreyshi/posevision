@@ -1,35 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [backendStatus, setBackendStatus] = useState("Checking...");
+
+  useEffect(() => {
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((data) => setBackendStatus(data.status))
+      .catch(() => setBackendStatus("Backend not connected"));
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
+    <div style={styles.container}>
+      <h1 style={styles.title}>PoseVision 🚀</h1>
+
+      <p style={styles.subtitle}>
+        Real-time posture & pose detection web app
+      </p>
+
+      <div style={styles.card}>
         <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
+          <strong>Backend Status:</strong> {backendStatus}
         </p>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
+
+      <p style={styles.footer}>
+        Day 1: React frontend + Express backend setup
       </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+const styles = {
+  container: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f4f4f5",
+    fontFamily: "sans-serif",
+  },
+  title: {
+    fontSize: "3rem",
+    marginBottom: "0.5rem",
+  },
+  subtitle: {
+    fontSize: "1.2rem",
+    marginBottom: "2rem",
+    color: "#555",
+  },
+  card: {
+    padding: "1.2rem 2rem",
+    backgroundColor: "white",
+    borderRadius: "10px",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+    marginBottom: "2rem",
+  },
+  footer: {
+    fontSize: "0.9rem",
+    color: "#777",
+  },
+};
+
+export default App;
