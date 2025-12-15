@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Heading,
+  Text,
+  Card,
+  CardBody,
+  VStack,
+  Badge,
+} from "@chakra-ui/react";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState("Checking...");
@@ -7,60 +16,38 @@ function App() {
     fetch("/api/health")
       .then((res) => res.json())
       .then((data) => setBackendStatus(data.status))
-      .catch(() => setBackendStatus("Backend not connected"));
+      .catch(() => setBackendStatus("Not Connected"));
   }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>PoseVision 🚀</h1>
+    <Box minH="100vh" bg="gray.50" display="flex" alignItems="center" justifyContent="center">
+      <Card w="400px" boxShadow="lg" borderRadius="xl">
+        <CardBody>
+          <VStack spacing={4}>
+            <Heading size="lg">PoseVision 🚀</Heading>
 
-      <p style={styles.subtitle}>
-        Real-time posture & pose detection web app
-      </p>
+            <Text textAlign="center" color="gray.600">
+              Real-time posture & pose detection web app
+            </Text>
 
-      <div style={styles.card}>
-        <p>
-          <strong>Backend Status:</strong> {backendStatus}
-        </p>
-      </div>
+            <Badge
+              colorScheme={backendStatus === "ok" ? "green" : "red"}
+              fontSize="1em"
+              px={4}
+              py={1}
+              borderRadius="full"
+            >
+              Backend: {backendStatus}
+            </Badge>
 
-      <p style={styles.footer}>
-        Day 1: React frontend + Express backend setup
-      </p>
-    </div>
+            <Text fontSize="sm" color="gray.500">
+              Day 1: Chakra UI + React + Express setup
+            </Text>
+          </VStack>
+        </CardBody>
+      </Card>
+    </Box>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f4f4f5",
-    fontFamily: "sans-serif",
-  },
-  title: {
-    fontSize: "3rem",
-    marginBottom: "0.5rem",
-  },
-  subtitle: {
-    fontSize: "1.2rem",
-    marginBottom: "2rem",
-    color: "#555",
-  },
-  card: {
-    padding: "1.2rem 2rem",
-    backgroundColor: "white",
-    borderRadius: "10px",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    marginBottom: "2rem",
-  },
-  footer: {
-    fontSize: "0.9rem",
-    color: "#777",
-  },
-};
 
 export default App;
