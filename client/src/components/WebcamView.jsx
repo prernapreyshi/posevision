@@ -9,8 +9,9 @@ function WebcamView() {
   const cameraRef = useRef(null);
 
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [status, setStatus] = useState("Waiting...");
+  const [status, setStatus] = useState("Waiting for camera");
 
+  // ---------- INITIALIZE MEDIAPIPE ----------
   useEffect(() => {
     const holistic = new Holistic({
       locateFile: (file) =>
@@ -20,7 +21,6 @@ function WebcamView() {
     holistic.setOptions({
       modelComplexity: 1,
       smoothLandmarks: true,
-      enableSegmentation: false,
       refineFaceLandmarks: true,
     });
 
@@ -32,21 +32,29 @@ function WebcamView() {
       canvas.height = videoRef.current.videoHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const drawPoints = (landmarks, color) => {
-        landmarks?.forEach((p) => {
+      const drawPoints = (landmarks, color, size = 2) => {
+        if (!landmarks) return;
+        landmarks.forEach((p) => {
           ctx.beginPath();
-          ctx.arc(p.x * canvas.width, p.y * canvas.height, 2, 0, 2 * Math.PI);
+          ctx.arc(
+            p.x * canvas.width,
+            p.y * canvas.height,
+            size,
+            0,
+            2 * Math.PI
+          );
           ctx.fillStyle = color;
           ctx.fill();
         });
       };
 
-      drawPoints(results.faceLandmarks, "yellow"); // face (mouth, nose, eyes)
-      drawPoints(results.leftHandLandmarks, "cyan"); // left hand
-      drawPoints(results.rightHandLandmarks, "cyan"); // right hand
-      drawPoints(results.poseLandmarks, "red"); // body
+      // Draw landmarks
+      drawPoints(results.faceLandmarks, "yellow", 1.5);   // face (mouth, nose, eyes)
+      drawPoints(results.leftHandLandmarks, "cyan", 3);  // left hand
+      drawPoints(results.rightHandLandmarks, "cyan", 3); // right hand
+      drawPoints(results.poseLandmarks, "red", 3);       // body
 
-      setStatus("Detecting face, hands & body ✅");
+      setStatus("Detecting face, hands & body");
     });
 
     cameraRef.current = new Camera(videoRef.current, {
@@ -58,15 +66,17 @@ function WebcamView() {
     });
   }, []);
 
+  // ---------- CAMERA CONTROLS ----------
   const startCamera = () => {
     cameraRef.current.start();
     setIsCameraOn(true);
+    setStatus("Camera started");
   };
 
   const stopCamera = () => {
     cameraRef.current.stop();
     setIsCameraOn(false);
-    setStatus("Stopped");
+    setStatus("Camera stopped");
   };
 
   return (
@@ -76,11 +86,19 @@ function WebcamView() {
           ref={videoRef}
           autoPlay
           playsInline
-          style={{ width: "640px", height: "480px" }}
+          style={{
+            width: "640px",
+            height: "480px",
+            position: "absolute",
+            transform: "scaleX(-1)",
+          }}
         />
         <canvas
           ref={canvasRef}
-          style={{ position: "absolute", top: 0, left: 0 }}
+          style={{
+            position: "absolute",
+            transform: "scaleX(-1)",
+          }}
         />
       </Box>
 
@@ -99,7 +117,7 @@ function WebcamView() {
       </Badge>
 
       <Text fontSize="sm" color="gray.500">
-        Face + hand + body landmark detection
+        MediaPipe Holistic: face + hands + body detection
       </Text>
     </VStack>
   );
