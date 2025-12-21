@@ -9,9 +9,45 @@ function WebcamView() {
   const cameraRef = useRef(null);
 
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [status, setStatus] = useState("Waiting for camera");
+  const [posture, setPosture] = useState("Analyzing...");
+  const [score, setScore] = useState(0);
+  const [gesture, setGesture] = useState("No hand");
 
-  // ---------- INITIALIZE MEDIAPIPE ----------
+  // ---------------- ANGLE CALCULATION ----------------
+  const calculateAngle = (a, b, c) => {
+    const radians =
+      Math.atan2(c.y - b.y, c.x - b.x) -
+      Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs((radians * 180) / Math.PI);
+    if (angle > 180) angle = 360 - angle;
+    return angle;
+  };
+
+  // ---------------- HAND GESTURE ----------------
+  const detectGesture = (hand) => {
+    if (!hand) return "No hand";
+
+    const wrist = hand[0];
+    const thumbTip = hand[4];
+    const indexTip = hand[8];
+    const middleTip = hand[12];
+
+    if (
+      thumbTip.y < wrist.y &&
+      indexTip.y > wrist.y &&
+      middleTip.y > wrist.y
+    ) {
+      return "👍 Thumbs Up";
+    }
+
+    if (indexTip.y < wrist.y && middleTip.y < wrist.y) {
+      return "✋ Open Palm";
+    }
+
+    return "Unknown gesture";
+  };
+
+  // ---------------- MEDIAPIPE INIT ----------------
   useEffect(() => {
     const holistic = new Holistic({
       locateFile: (file) =>
@@ -49,12 +85,35 @@ function WebcamView() {
       };
 
       // Draw landmarks
-      drawPoints(results.faceLandmarks, "yellow", 1.5);   // face (mouth, nose, eyes)
-      drawPoints(results.leftHandLandmarks, "cyan", 3);  // left hand
-      drawPoints(results.rightHandLandmarks, "cyan", 3); // right hand
-      drawPoints(results.poseLandmarks, "red", 3);       // body
+      drawPoints(results.faceLandmarks, "yellow", 1.5);
+      drawPoints(results.leftHandLandmarks, "cyan", 3);
+      drawPoints(results.rightHandLandmarks, "cyan", 3);
+      drawPoints(results.poseLandmarks, "red", 3);
 
-      setStatus("Detecting face, hands & body");
+      // -------- POSTURE ANALYSIS --------
+      if (results.poseLandmarks) {
+        const nose = results.poseLandmarks[0];
+        const shoulder = results.poseLandmarks[11];
+        const hip = results.poseLandmarks[23];
+
+        const neckAngle = calculateAngle(nose, shoulder, hip);
+        const postureScore = Math.min(100, Math.max(0, neckAngle * 2));
+
+        setScore(Math.round(postureScore));
+
+        if (neckAngle < 40) {
+          setPosture("❌ Bad posture: straighten your neck");
+        } else {
+          setPosture("✅ Good posture");
+        }
+      }
+
+      // -------- HAND GESTURE --------
+      if (results.rightHandLandmarks) {
+        setGesture(detectGesture(results.rightHandLandmarks));
+      } else {
+        setGesture("No hand");
+      }
     });
 
     cameraRef.current = new Camera(videoRef.current, {
@@ -66,19 +125,21 @@ function WebcamView() {
     });
   }, []);
 
-  // ---------- CAMERA CONTROLS ----------
+  // ---------------- CAMERA ----------------
   const startCamera = () => {
     cameraRef.current.start();
     setIsCameraOn(true);
-    setStatus("Camera started");
   };
 
   const stopCamera = () => {
     cameraRef.current.stop();
     setIsCameraOn(false);
-    setStatus("Camera stopped");
+    setPosture("Analyzing...");
+    setScore(0);
+    setGesture("No hand");
   };
 
+  // ---------------- UI ----------------
   return (
     <VStack spacing={4}>
       <Box position="relative" w="640px" h="480px">
@@ -112,12 +173,19 @@ function WebcamView() {
         </Button>
       )}
 
-      <Badge colorScheme="green" px={4} py={2}>
-        {status}
+      <Badge
+        colorScheme={posture.includes("Good") ? "green" : "red"}
+        px={4}
+        py={2}
+      >
+        {posture}
       </Badge>
 
+      <Text fontWeight="bold">Posture Score: {score}/100</Text>
+      <Text fontSize="lg">Gesture: {gesture}</Text>
+
       <Text fontSize="sm" color="gray.500">
-        MediaPipe Holistic: face + hands + body detection
+        MediaPipe Holistic — posture + gesture analysis
       </Text>
     </VStack>
   );
