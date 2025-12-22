@@ -8,12 +8,11 @@ function WebcamView() {
   const canvasRef = useRef(null);
   const cameraRef = useRef(null);
 
-  const [isCameraOn, setIsCameraOn] = useState(false);
-  const [posture, setPosture] = useState("Analyzing...");
-  const [score, setScore] = useState(0);
-  const [gesture, setGesture] = useState("No hand");
+  const [cameraOn, setCameraOn] = useState(false);
+  const [poseName, setPoseName] = useState("Detecting...");
+  const [feedback, setFeedback] = useState("");
 
-  // ---------------- ANGLE CALCULATION ----------------
+  // ---------- ANGLE UTILITY ----------
   const calculateAngle = (a, b, c) => {
     const radians =
       Math.atan2(c.y - b.y, c.x - b.x) -
@@ -23,31 +22,33 @@ function WebcamView() {
     return angle;
   };
 
-  // ---------------- HAND GESTURE ----------------
-  const detectGesture = (hand) => {
-    if (!hand) return "No hand";
+  // ---------- HELPER ----------
+  const isLevel = (p1, p2, tol = 0.05) =>
+    Math.abs(p1.y - p2.y) < tol;
 
-    const wrist = hand[0];
-    const thumbTip = hand[4];
-    const indexTip = hand[8];
-    const middleTip = hand[12];
-
-    if (
-      thumbTip.y < wrist.y &&
-      indexTip.y > wrist.y &&
-      middleTip.y > wrist.y
-    ) {
-      return "👍 Thumbs Up";
-    }
-
-    if (indexTip.y < wrist.y && middleTip.y < wrist.y) {
-      return "✋ Open Palm";
-    }
-
-    return "Unknown gesture";
+  // ---------- POSE DETECTION ----------
+  const detectTPose = (lm) => {
+    return (
+      isLevel(lm[11], lm[15]) &&
+      isLevel(lm[12], lm[16])
+    );
   };
 
-  // ---------------- MEDIAPIPE INIT ----------------
+  const detectWarriorII = (lm) => {
+    const kneeAngle = calculateAngle(lm[23], lm[25], lm[27]);
+    return (
+      isLevel(lm[11], lm[15]) &&
+      isLevel(lm[12], lm[16]) &&
+      kneeAngle > 70 &&
+      kneeAngle < 110
+    );
+  };
+
+  const detectTreePose = (lm) => {
+    return Math.abs(lm[27].y - lm[28].y) > 0.15;
+  };
+
+  // ---------- MEDIAPIPE INIT ----------
   useEffect(() => {
     const holistic = new Holistic({
       locateFile: (file) =>
@@ -68,7 +69,7 @@ function WebcamView() {
       canvas.height = videoRef.current.videoHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const drawPoints = (landmarks, color, size = 2) => {
+      const draw = (landmarks, color, size = 3) => {
         if (!landmarks) return;
         landmarks.forEach((p) => {
           ctx.beginPath();
@@ -84,35 +85,27 @@ function WebcamView() {
         });
       };
 
-      // Draw landmarks
-      drawPoints(results.faceLandmarks, "yellow", 1.5);
-      drawPoints(results.leftHandLandmarks, "cyan", 3);
-      drawPoints(results.rightHandLandmarks, "cyan", 3);
-      drawPoints(results.poseLandmarks, "red", 3);
+      draw(results.faceLandmarks, "yellow", 1.5);
+      draw(results.leftHandLandmarks, "cyan", 3);
+      draw(results.rightHandLandmarks, "cyan", 3);
+      draw(results.poseLandmarks, "red", 3);
 
-      // -------- POSTURE ANALYSIS --------
-      if (results.poseLandmarks) {
-        const nose = results.poseLandmarks[0];
-        const shoulder = results.poseLandmarks[11];
-        const hip = results.poseLandmarks[23];
+      // ---------- YOGA LOGIC ----------
+      const lm = results.poseLandmarks;
+      if (!lm) return;
 
-        const neckAngle = calculateAngle(nose, shoulder, hip);
-        const postureScore = Math.min(100, Math.max(0, neckAngle * 2));
-
-        setScore(Math.round(postureScore));
-
-        if (neckAngle < 40) {
-          setPosture("❌ Bad posture: straighten your neck");
-        } else {
-          setPosture("✅ Good posture");
-        }
-      }
-
-      // -------- HAND GESTURE --------
-      if (results.rightHandLandmarks) {
-        setGesture(detectGesture(results.rightHandLandmarks));
+      if (detectWarriorII(lm)) {
+        setPoseName("⚔️ Warrior II");
+        setFeedback("Arms strong, front knee bent — great form!");
+      } else if (detectTreePose(lm)) {
+        setPoseName("🌳 Tree Pose");
+        setFeedback("Balance steady — focus on breathing");
+      } else if (detectTPose(lm)) {
+        setPoseName("🧍 T-Pose");
+        setFeedback("Arms level — perfect alignment");
       } else {
-        setGesture("No hand");
+        setPoseName("No pose detected");
+        setFeedback("Adjust your posture");
       }
     });
 
@@ -125,21 +118,20 @@ function WebcamView() {
     });
   }, []);
 
-  // ---------------- CAMERA ----------------
+  // ---------- CAMERA ----------
   const startCamera = () => {
     cameraRef.current.start();
-    setIsCameraOn(true);
+    setCameraOn(true);
   };
 
   const stopCamera = () => {
     cameraRef.current.stop();
-    setIsCameraOn(false);
-    setPosture("Analyzing...");
-    setScore(0);
-    setGesture("No hand");
+    setCameraOn(false);
+    setPoseName("Detecting...");
+    setFeedback("");
   };
 
-  // ---------------- UI ----------------
+  // ---------- UI ----------
   return (
     <VStack spacing={4}>
       <Box position="relative" w="640px" h="480px">
@@ -163,29 +155,26 @@ function WebcamView() {
         />
       </Box>
 
-      {!isCameraOn ? (
-        <Button onClick={startCamera} colorScheme="teal">
+      {!cameraOn ? (
+        <Button colorScheme="teal" onClick={startCamera}>
           Start Camera
         </Button>
       ) : (
-        <Button onClick={stopCamera} colorScheme="red">
+        <Button colorScheme="red" onClick={stopCamera}>
           Stop Camera
         </Button>
       )}
 
-      <Badge
-        colorScheme={posture.includes("Good") ? "green" : "red"}
-        px={4}
-        py={2}
-      >
-        {posture}
+      <Badge colorScheme="purple" px={4} py={2}>
+        {poseName}
       </Badge>
 
-      <Text fontWeight="bold">Posture Score: {score}/100</Text>
-      <Text fontSize="lg">Gesture: {gesture}</Text>
+      <Text fontSize="md" color="gray.600">
+        {feedback}
+      </Text>
 
       <Text fontSize="sm" color="gray.500">
-        MediaPipe Holistic — posture + gesture analysis
+        AI Yoga Trainer — MediaPipe Holistic + Computer Vision
       </Text>
     </VStack>
   );
