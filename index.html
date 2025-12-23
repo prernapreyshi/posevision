@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Real-Time Pose Detection</title>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <h2>Real-Time Pose Detection</h2>
+
+  <!-- Webcam -->
+  <video id="video" autoplay playsinline></video>
+
+  <!-- Drawing layer -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Feedback -->
+  <p id="output">Detecting posture...</p>
+
+  <!-- Main logic -->
+  <script src="script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+body {
+  text-align: center;
+  background-color: #f4f4f4;
+  font-family: Arial, sans-serif;
+}
+
+video, canvas {
+  width: 640px;
+  height: 480px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) scaleX(-1);
+}
+
+canvas {
+  pointer-events: none;
+}
