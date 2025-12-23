@@ -1,5 +1,5 @@
 /*************************************************
- * REAL-TIME POSE DETECTION (FINAL VERSION)
+ * REAL-TIME POSE DETECTION (FINAL – MIRROR FIXED)
  * MediaPipe Holistic + JavaScript
  *************************************************/
 
@@ -15,7 +15,7 @@ const isMobile = window.innerWidth < 768;
 // ---------- VOICE ----------
 let lastSpoken = "";
 
-// ---------- SPEAK FUNCTION ----------
+// ---------- SPEAK ----------
 function speak(text) {
   if (!text || text === lastSpoken) return;
   lastSpoken = text;
@@ -71,12 +71,12 @@ function saveSession(pose, acc) {
   localStorage.setItem("poseSessions", JSON.stringify(sessions));
 }
 
-// ---------- DRAW TEXT (FIX MIRROR) ----------
+// ---------- DRAW TEXT (NOT MIRRORED) ----------
 function drawText(text, x, y) {
   ctx.save();
-  ctx.scale(-1, 1);
+  ctx.scale(-1, 1); // undo mirror
   ctx.fillStyle = "white";
-  ctx.font = "14px Arial";
+  ctx.font = "15px Arial";
   ctx.fillText(text, -canvas.width + x, y);
   ctx.restore();
 }
@@ -108,10 +108,8 @@ let poseCounter = 0;
 
 // ---------- POSE LOGIC ----------
 function detectPose(lm) {
-  if (
-    lm[27].visibility < 0.5 ||
-    lm[28].visibility < 0.5
-  ) {
+  // Full body check
+  if (lm[27].visibility < 0.5 || lm[28].visibility < 0.5) {
     output.innerText = "Step back – full body not visible";
     return;
   }
@@ -121,10 +119,11 @@ function detectPose(lm) {
   const lKnee = smooth("lKnee", calculateAngle(lm[23], lm[25], lm[27]));
   const rKnee = smooth("rKnee", calculateAngle(lm[24], lm[26], lm[28]));
 
-  drawText(`Left Arm: ${lArm.toFixed(1)}°`, 10, 20);
-  drawText(`Right Arm: ${rArm.toFixed(1)}°`, 10, 40);
-  drawText(`Left Knee: ${lKnee.toFixed(1)}°`, 10, 60);
-  drawText(`Right Knee: ${rKnee.toFixed(1)}°`, 10, 80);
+  // ---------- LIVE ANGLES ----------
+  drawText(`Left Arm: ${lArm.toFixed(1)}°`, 15, 25);
+  drawText(`Right Arm: ${rArm.toFixed(1)}°`, 15, 50);
+  drawText(`Left Knee: ${lKnee.toFixed(1)}°`, 15, 75);
+  drawText(`Right Knee: ${rKnee.toFixed(1)}°`, 15, 100);
 
   let pose = "No Pose";
   let acc = 0;
@@ -157,6 +156,7 @@ function detectPose(lm) {
     }
   }
 
+  // Stability lock
   if (pose === stablePose) poseCounter++;
   else {
     poseCounter = 0;
@@ -165,8 +165,8 @@ function detectPose(lm) {
 
   if (poseCounter > 10) {
     output.innerText = `${pose} | Accuracy: ${acc}%`;
-    drawText(`Pose: ${pose}`, 10, canvas.height - 40);
-    drawText(`Accuracy: ${acc}%`, 10, canvas.height - 20);
+    drawText(`Pose: ${pose}`, 15, canvas.height - 45);
+    drawText(`Accuracy: ${acc}%`, 15, canvas.height - 20);
     speak(message);
     if (acc > 80) saveSession(pose, acc);
   }
@@ -179,6 +179,7 @@ holistic.onResults((results) => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (results.poseLandmarks) {
+    // Points
     results.poseLandmarks.forEach((p) => {
       ctx.beginPath();
       ctx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, 2 * Math.PI);

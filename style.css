@@ -9,7 +9,7 @@ video, canvas {
   height: 480px;
   position: absolute;
   left: 50%;
-  transform: translateX(-50%) scaleX(-1);
+  transform: translateX(-50%);
 }
 
 canvas {
