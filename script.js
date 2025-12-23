@@ -1,6 +1,6 @@
 /*************************************************
  * REAL-TIME POSE DETECTION (FINAL VERSION)
- * MediaPipe Holistic + JS
+ * MediaPipe Holistic + JavaScript
  *************************************************/
 
 // ---------- HTML ELEMENTS ----------
@@ -9,13 +9,13 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const output = document.getElementById("output");
 
-// ---------- MOBILE OPTIMIZATION ----------
+// ---------- DEVICE CHECK ----------
 const isMobile = window.innerWidth < 768;
 
-// ---------- VOICE CONTROL ----------
+// ---------- VOICE ----------
 let lastSpoken = "";
 
-// ---------- SPEAK ----------
+// ---------- SPEAK FUNCTION ----------
 function speak(text) {
   if (!text || text === lastSpoken) return;
   lastSpoken = text;
@@ -25,7 +25,7 @@ function speak(text) {
   window.speechSynthesis.speak(utter);
 }
 
-// ---------- LOAD MEDIAPIPE ----------
+// ---------- MEDIAPIPE ----------
 const holistic = new Holistic({
   locateFile: (file) =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`,
@@ -36,7 +36,7 @@ holistic.setOptions({
   smoothLandmarks: true,
 });
 
-// ---------- ANGLE CALCULATION ----------
+// ---------- ANGLE ----------
 function calculateAngle(a, b, c) {
   const radians =
     Math.atan2(c.y - b.y, c.x - b.x) -
@@ -47,15 +47,12 @@ function calculateAngle(a, b, c) {
 }
 
 // ---------- SMOOTHING ----------
-let angleHistory = {};
-function smooth(key, value) {
-  if (!angleHistory[key]) angleHistory[key] = [];
-  angleHistory[key].push(value);
-  if (angleHistory[key].length > 5) angleHistory[key].shift();
-  return (
-    angleHistory[key].reduce((a, b) => a + b, 0) /
-    angleHistory[key].length
-  );
+const history = {};
+function smooth(key, val) {
+  if (!history[key]) history[key] = [];
+  history[key].push(val);
+  if (history[key].length > 5) history[key].shift();
+  return history[key].reduce((a, b) => a + b, 0) / history[key].length;
 }
 
 // ---------- ACCURACY ----------
@@ -74,7 +71,17 @@ function saveSession(pose, acc) {
   localStorage.setItem("poseSessions", JSON.stringify(sessions));
 }
 
-// ---------- DRAW SKELETON ----------
+// ---------- DRAW TEXT (FIX MIRROR) ----------
+function drawText(text, x, y) {
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.fillStyle = "white";
+  ctx.font = "14px Arial";
+  ctx.fillText(text, -canvas.width + x, y);
+  ctx.restore();
+}
+
+// ---------- SKELETON ----------
 const connections = [
   [11, 13], [13, 15],
   [12, 14], [14, 16],
@@ -95,77 +102,77 @@ function drawSkeleton(lm) {
   });
 }
 
-// ---------- DRAW TEXT ----------
-function drawText(text, x, y) {
-  ctx.fillStyle = "white";
-  ctx.font = "14px Arial";
-  ctx.fillText(text, x, y);
-}
+// ---------- STABILITY ----------
+let stablePose = "";
+let poseCounter = 0;
 
-// ---------- POSE DETECTION ----------
+// ---------- POSE LOGIC ----------
 function detectPose(lm) {
+  if (
+    lm[27].visibility < 0.5 ||
+    lm[28].visibility < 0.5
+  ) {
+    output.innerText = "Step back – full body not visible";
+    return;
+  }
+
+  const lArm = smooth("lArm", calculateAngle(lm[11], lm[13], lm[15]));
+  const rArm = smooth("rArm", calculateAngle(lm[12], lm[14], lm[16]));
+  const lKnee = smooth("lKnee", calculateAngle(lm[23], lm[25], lm[27]));
+  const rKnee = smooth("rKnee", calculateAngle(lm[24], lm[26], lm[28]));
+
+  drawText(`Left Arm: ${lArm.toFixed(1)}°`, 10, 20);
+  drawText(`Right Arm: ${rArm.toFixed(1)}°`, 10, 40);
+  drawText(`Left Knee: ${lKnee.toFixed(1)}°`, 10, 60);
+  drawText(`Right Knee: ${rKnee.toFixed(1)}°`, 10, 80);
+
   let pose = "No Pose";
   let acc = 0;
   let message = "Adjust posture";
 
-  // Angles
-  const leftArm = smooth(
-    "lArm",
-    calculateAngle(lm[11], lm[13], lm[15])
-  );
-  const rightArm = smooth(
-    "rArm",
-    calculateAngle(lm[12], lm[14], lm[16])
-  );
-  const leftKnee = smooth(
-    "lKnee",
-    calculateAngle(lm[23], lm[25], lm[27])
-  );
-  const rightKnee = smooth(
-    "rKnee",
-    calculateAngle(lm[24], lm[26], lm[28])
-  );
-
-  // ---------- LIVE ANGLES ----------
-  drawText(`Left Arm: ${leftArm.toFixed(1)}°`, 10, 20);
-  drawText(`Right Arm: ${rightArm.toFixed(1)}°`, 10, 40);
-  drawText(`Left Knee: ${leftKnee.toFixed(1)}°`, 10, 60);
-  drawText(`Right Knee: ${rightKnee.toFixed(1)}°`, 10, 80);
-
-  // ---------- T-POSE ----------
-  if (leftArm > 140 && rightArm > 140) {
+  // T-POSE
+  if (lArm > 140 && rArm > 140) {
     pose = "🧍 T-Pose";
-    acc = Math.min(accuracy(leftArm, 180), accuracy(rightArm, 180));
+    acc = Math.min(accuracy(lArm, 180), accuracy(rArm, 180));
     message = acc > 75 ? "Perfect T pose" : "Straighten your arms";
   }
 
-  // ---------- WARRIOR II ----------
+  // WARRIOR II
   else if (
-    (leftKnee > 70 && leftKnee < 130) ||
-    (rightKnee > 70 && rightKnee < 130)
+    (lKnee > 70 && lKnee < 130) ||
+    (rKnee > 70 && rKnee < 130)
   ) {
     pose = "⚔️ Warrior II";
-    acc = Math.max(accuracy(leftKnee, 90), accuracy(rightKnee, 90));
+    acc = Math.max(accuracy(lKnee, 90), accuracy(rKnee, 90));
     message = acc > 75 ? "Strong warrior pose" : "Bend your front knee";
   }
 
-  // ---------- TREE POSE ----------
+  // TREE POSE
   else {
     const ankleDiff = Math.abs(lm[27].y - lm[28].y);
     if (ankleDiff > 0.12) {
       pose = "🌳 Tree Pose";
       acc = accuracy(ankleDiff * 100, 18);
-      message = acc > 75 ? "Good balance" : "Focus on balance";
+      message = acc > 75 ? "Nice balance" : "Focus on balance";
     }
   }
 
-  output.innerText = `${pose} | Accuracy: ${acc}%`;
-  speak(message);
+  if (pose === stablePose) poseCounter++;
+  else {
+    poseCounter = 0;
+    stablePose = pose;
+  }
 
-  if (acc > 80) saveSession(pose, acc);
+  if (poseCounter > 10) {
+    output.innerText = `${pose} | Accuracy: ${acc}%`;
+    drawText(`Pose: ${pose}`, 10, canvas.height - 40);
+    drawText(`Accuracy: ${acc}%`, 10, canvas.height - 20);
+    speak(message);
+    if (acc > 80) saveSession(pose, acc);
+  }
 }
 
-// ---------- PROCESS FRAMES ----------
+// ---------- FRAME LOOP ----------
 holistic.onResults((results) => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -192,7 +199,7 @@ const camera = new Camera(video, {
     await holistic.send({ image: video });
   },
   width: isMobile ? 360 : 640,
-  height: isMobile ? 480 : 480,
+  height: 480,
 });
 
 camera.start();
