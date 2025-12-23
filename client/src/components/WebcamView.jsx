@@ -1,4 +1,4 @@
-import { Box, Button, VStack, Text, Badge } from "@chakra-ui/react";
+import { Box, Button, VStack, Text, Badge, Progress } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 import { Holistic } from "@mediapipe/holistic";
 import { Camera } from "@mediapipe/camera_utils";
@@ -11,6 +11,7 @@ function WebcamView() {
   const [cameraOn, setCameraOn] = useState(false);
   const [poseName, setPoseName] = useState("Detecting...");
   const [feedback, setFeedback] = useState("");
+  const [accuracy, setAccuracy] = useState(0);
 
   // ---------- ANGLE UTILITY ----------
   const calculateAngle = (a, b, c) => {
@@ -22,33 +23,63 @@ function WebcamView() {
     return angle;
   };
 
-  // ---------- HELPER ----------
   const isLevel = (p1, p2, tol = 0.05) =>
     Math.abs(p1.y - p2.y) < tol;
 
-  // ---------- POSE DETECTION ----------
+  // ---------- ACCURACY HELPERS ----------
+  const angleAccuracy = (current, ideal) =>
+    Math.max(0, 100 - Math.abs(current - ideal) * 2);
+
+  // ---------- POSE DETECTORS ----------
   const detectTPose = (lm) => {
-    return (
-      isLevel(lm[11], lm[15]) &&
-      isLevel(lm[12], lm[16])
-    );
+    const leftArm = calculateAngle(lm[11], lm[13], lm[15]);
+    const rightArm = calculateAngle(lm[12], lm[14], lm[16]);
+
+    const acc =
+      (angleAccuracy(leftArm, 180) +
+        angleAccuracy(rightArm, 180)) /
+      2;
+
+    if (acc > 70 && isLevel(lm[11], lm[15]) && isLevel(lm[12], lm[16])) {
+      setAccuracy(Math.round(acc));
+      setPoseName("🧍 T-Pose");
+      setFeedback("Arms straight and level");
+      return true;
+    }
+    return false;
   };
 
   const detectWarriorII = (lm) => {
     const kneeAngle = calculateAngle(lm[23], lm[25], lm[27]);
-    return (
+    const kneeAcc = angleAccuracy(kneeAngle, 90);
+
+    if (
+      kneeAcc > 60 &&
       isLevel(lm[11], lm[15]) &&
-      isLevel(lm[12], lm[16]) &&
-      kneeAngle > 70 &&
-      kneeAngle < 110
-    );
+      isLevel(lm[12], lm[16])
+    ) {
+      setAccuracy(Math.round(kneeAcc));
+      setPoseName("⚔️ Warrior II");
+      setFeedback("Strong stance — bend front knee near 90°");
+      return true;
+    }
+    return false;
   };
 
   const detectTreePose = (lm) => {
-    return Math.abs(lm[27].y - lm[28].y) > 0.15;
+    const standingLeg = calculateAngle(lm[23], lm[25], lm[27]);
+    const acc = angleAccuracy(standingLeg, 170);
+
+    if (Math.abs(lm[27].y - lm[28].y) > 0.15 && acc > 60) {
+      setAccuracy(Math.round(acc));
+      setPoseName("🌳 Tree Pose");
+      setFeedback("Balance steady — focus ahead");
+      return true;
+    }
+    return false;
   };
 
-  // ---------- MEDIAPIPE INIT ----------
+  // ---------- MEDIAPIPE ----------
   useEffect(() => {
     const holistic = new Holistic({
       locateFile: (file) =>
@@ -69,9 +100,9 @@ function WebcamView() {
       canvas.height = videoRef.current.videoHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const draw = (landmarks, color, size = 3) => {
-        if (!landmarks) return;
-        landmarks.forEach((p) => {
+      const draw = (lm, color, size = 3) => {
+        if (!lm) return;
+        lm.forEach((p) => {
           ctx.beginPath();
           ctx.arc(
             p.x * canvas.width,
@@ -85,28 +116,25 @@ function WebcamView() {
         });
       };
 
+      draw(results.poseLandmarks, "red");
+      draw(results.leftHandLandmarks, "cyan");
+      draw(results.rightHandLandmarks, "cyan");
       draw(results.faceLandmarks, "yellow", 1.5);
-      draw(results.leftHandLandmarks, "cyan", 3);
-      draw(results.rightHandLandmarks, "cyan", 3);
-      draw(results.poseLandmarks, "red", 3);
 
-      // ---------- YOGA LOGIC ----------
       const lm = results.poseLandmarks;
       if (!lm) return;
 
-      if (detectWarriorII(lm)) {
-        setPoseName("⚔️ Warrior II");
-        setFeedback("Arms strong, front knee bent — great form!");
-      } else if (detectTreePose(lm)) {
-        setPoseName("🌳 Tree Pose");
-        setFeedback("Balance steady — focus on breathing");
-      } else if (detectTPose(lm)) {
-        setPoseName("🧍 T-Pose");
-        setFeedback("Arms level — perfect alignment");
-      } else {
-        setPoseName("No pose detected");
-        setFeedback("Adjust your posture");
-      }
+      setAccuracy(0);
+
+      if (
+        detectWarriorII(lm) ||
+        detectTreePose(lm) ||
+        detectTPose(lm)
+      )
+        return;
+
+      setPoseName("No pose detected");
+      setFeedback("Adjust your posture");
     });
 
     cameraRef.current = new Camera(videoRef.current, {
@@ -129,6 +157,7 @@ function WebcamView() {
     setCameraOn(false);
     setPoseName("Detecting...");
     setFeedback("");
+    setAccuracy(0);
   };
 
   // ---------- UI ----------
@@ -169,12 +198,19 @@ function WebcamView() {
         {poseName}
       </Badge>
 
-      <Text fontSize="md" color="gray.600">
-        {feedback}
-      </Text>
+      <Text>{feedback}</Text>
+
+      <Box w="300px">
+        <Text fontWeight="bold">Pose Accuracy: {accuracy}%</Text>
+        <Progress
+          value={accuracy}
+          colorScheme={accuracy > 80 ? "green" : "yellow"}
+          borderRadius="md"
+        />
+      </Box>
 
       <Text fontSize="sm" color="gray.500">
-        AI Yoga Trainer — MediaPipe Holistic + Computer Vision
+        AI Yoga Trainer — Accuracy based on joint angles
       </Text>
     </VStack>
   );
