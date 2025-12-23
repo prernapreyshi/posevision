@@ -1,4 +1,11 @@
-import { Box, Button, VStack, Text, Badge, Progress } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  VStack,
+  Text,
+  Badge,
+  Progress,
+} from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 import { Holistic } from "@mediapipe/holistic";
 import { Camera } from "@mediapipe/camera_utils";
@@ -7,13 +14,29 @@ function WebcamView() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const cameraRef = useRef(null);
+  const lastSpokenRef = useRef("");
 
   const [cameraOn, setCameraOn] = useState(false);
   const [poseName, setPoseName] = useState("Detecting...");
   const [feedback, setFeedback] = useState("");
   const [accuracy, setAccuracy] = useState(0);
 
-  // ---------- ANGLE UTILITY ----------
+  // ---------------- VOICE FEEDBACK ----------------
+  const speak = (text) => {
+    if (!text || lastSpokenRef.current === text) return;
+
+    lastSpokenRef.current = text;
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // ---------------- ANGLE UTILS ----------------
   const calculateAngle = (a, b, c) => {
     const radians =
       Math.atan2(c.y - b.y, c.x - b.x) -
@@ -26,15 +49,13 @@ function WebcamView() {
   const isLevel = (p1, p2, tol = 0.05) =>
     Math.abs(p1.y - p2.y) < tol;
 
-  // ---------- ACCURACY HELPERS ----------
   const angleAccuracy = (current, ideal) =>
     Math.max(0, 100 - Math.abs(current - ideal) * 2);
 
-  // ---------- POSE DETECTORS ----------
+  // ---------------- POSE LOGIC ----------------
   const detectTPose = (lm) => {
     const leftArm = calculateAngle(lm[11], lm[13], lm[15]);
     const rightArm = calculateAngle(lm[12], lm[14], lm[16]);
-
     const acc =
       (angleAccuracy(leftArm, 180) +
         angleAccuracy(rightArm, 180)) /
@@ -44,6 +65,7 @@ function WebcamView() {
       setAccuracy(Math.round(acc));
       setPoseName("🧍 T-Pose");
       setFeedback("Arms straight and level");
+      speak("Arms straight and level");
       return true;
     }
     return false;
@@ -60,7 +82,17 @@ function WebcamView() {
     ) {
       setAccuracy(Math.round(kneeAcc));
       setPoseName("⚔️ Warrior II");
-      setFeedback("Strong stance — bend front knee near 90°");
+
+      if (kneeAngle < 80) {
+        setFeedback("Bend your front knee more");
+        speak("Bend your front knee more");
+      } else if (kneeAngle > 100) {
+        setFeedback("Straighten your front knee slightly");
+        speak("Straighten your front knee slightly");
+      } else {
+        setFeedback("Perfect Warrior Two posture");
+        speak("Perfect Warrior Two posture");
+      }
       return true;
     }
     return false;
@@ -73,13 +105,20 @@ function WebcamView() {
     if (Math.abs(lm[27].y - lm[28].y) > 0.15 && acc > 60) {
       setAccuracy(Math.round(acc));
       setPoseName("🌳 Tree Pose");
-      setFeedback("Balance steady — focus ahead");
+
+      if (acc < 80) {
+        setFeedback("Focus ahead and steady your balance");
+        speak("Focus ahead and steady your balance");
+      } else {
+        setFeedback("Excellent balance, hold the pose");
+        speak("Excellent balance, hold the pose");
+      }
       return true;
     }
     return false;
   };
 
-  // ---------- MEDIAPIPE ----------
+  // ---------------- MEDIAPIPE ----------------
   useEffect(() => {
     const holistic = new Holistic({
       locateFile: (file) =>
@@ -146,7 +185,7 @@ function WebcamView() {
     });
   }, []);
 
-  // ---------- CAMERA ----------
+  // ---------------- CAMERA ----------------
   const startCamera = () => {
     cameraRef.current.start();
     setCameraOn(true);
@@ -158,9 +197,11 @@ function WebcamView() {
     setPoseName("Detecting...");
     setFeedback("");
     setAccuracy(0);
+    window.speechSynthesis.cancel();
+    lastSpokenRef.current = "";
   };
 
-  // ---------- UI ----------
+  // ---------------- UI ----------------
   return (
     <VStack spacing={4}>
       <Box position="relative" w="640px" h="480px">
@@ -210,7 +251,7 @@ function WebcamView() {
       </Box>
 
       <Text fontSize="sm" color="gray.500">
-        AI Yoga Trainer — Accuracy based on joint angles
+        AI Yoga Trainer — with real-time voice feedback
       </Text>
     </VStack>
   );
