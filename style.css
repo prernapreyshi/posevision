@@ -12,6 +12,3 @@ video, canvas {
   transform: translateX(-50%);
 }
 
-canvas {
-  pointer-events: none;
-}
