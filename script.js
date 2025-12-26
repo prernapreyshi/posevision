@@ -1,15 +1,15 @@
 /*************************************************
- * REAL-TIME POSE DETECTION (FINAL – MIRROR FIXED)
+ * REAL-TIME POSE DETECTION (FINAL)
  * MediaPipe Holistic + JavaScript
  *************************************************/
 
-// ---------- HTML ELEMENTS ----------
+// ---------- ELEMENTS ----------
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const output = document.getElementById("output");
 
-// ---------- DEVICE CHECK ----------
+// ---------- DEVICE ----------
 const isMobile = window.innerWidth < 768;
 
 // ---------- VOICE ----------
@@ -19,10 +19,10 @@ let lastSpoken = "";
 function speak(text) {
   if (!text || text === lastSpoken) return;
   lastSpoken = text;
-  window.speechSynthesis.cancel();
+  speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.rate = 0.95;
-  window.speechSynthesis.speak(utter);
+  speechSynthesis.speak(utter);
 }
 
 // ---------- MEDIAPIPE ----------
@@ -42,11 +42,10 @@ function calculateAngle(a, b, c) {
     Math.atan2(c.y - b.y, c.x - b.x) -
     Math.atan2(a.y - b.y, a.x - b.x);
   let angle = Math.abs((radians * 180) / Math.PI);
-  if (angle > 180) angle = 360 - angle;
-  return angle;
+  return angle > 180 ? 360 - angle : angle;
 }
 
-// ---------- SMOOTHING ----------
+// ---------- SMOOTH ----------
 const history = {};
 function smooth(key, val) {
   if (!history[key]) history[key] = [];
@@ -71,14 +70,38 @@ function saveSession(pose, acc) {
   localStorage.setItem("poseSessions", JSON.stringify(sessions));
 }
 
-// ---------- DRAW TEXT (NOT MIRRORED) ----------
+// ---------- SHOW SESSIONS ----------
+window.showSessions = function () {
+  const list = document.getElementById("sessionList");
+  list.innerHTML = "";
+
+  const sessions =
+    JSON.parse(localStorage.getItem("poseSessions")) || [];
+
+  if (sessions.length === 0) {
+    list.innerHTML = "<li>No sessions saved</li>";
+    return;
+  }
+
+  sessions.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.innerText = `${i + 1}. ${s.pose} | ${s.accuracy}% | ${s.time}`;
+    list.appendChild(li);
+  });
+};
+
+// ---------- CLEAR SESSIONS ----------
+window.clearSessions = function () {
+  localStorage.removeItem("poseSessions");
+  document.getElementById("sessionList").innerHTML =
+    "<li>All sessions cleared</li>";
+};
+
+// ---------- DRAW TEXT ----------
 function drawText(text, x, y) {
-  ctx.save();
-  ctx.scale(-1, 1); // undo mirror
   ctx.fillStyle = "white";
   ctx.font = "15px Arial";
-  ctx.fillText(text, -canvas.width + x, y);
-  ctx.restore();
+  ctx.fillText(text, x, y);
 }
 
 // ---------- SKELETON ----------
@@ -106,9 +129,8 @@ function drawSkeleton(lm) {
 let stablePose = "";
 let poseCounter = 0;
 
-// ---------- POSE LOGIC ----------
+// ---------- POSE DETECTION ----------
 function detectPose(lm) {
-  // Full body check
   if (lm[27].visibility < 0.5 || lm[28].visibility < 0.5) {
     output.innerText = "Step back – full body not visible";
     return;
@@ -119,24 +141,24 @@ function detectPose(lm) {
   const lKnee = smooth("lKnee", calculateAngle(lm[23], lm[25], lm[27]));
   const rKnee = smooth("rKnee", calculateAngle(lm[24], lm[26], lm[28]));
 
-  // ---------- LIVE ANGLES ----------
+  // Live angles
   drawText(`Left Arm: ${lArm.toFixed(1)}°`, 15, 25);
-  drawText(`Right Arm: ${rArm.toFixed(1)}°`, 15, 50);
-  drawText(`Left Knee: ${lKnee.toFixed(1)}°`, 15, 75);
-  drawText(`Right Knee: ${rKnee.toFixed(1)}°`, 15, 100);
+  drawText(`Right Arm: ${rArm.toFixed(1)}°`, 15, 45);
+  drawText(`Left Knee: ${lKnee.toFixed(1)}°`, 15, 65);
+  drawText(`Right Knee: ${rKnee.toFixed(1)}°`, 15, 85);
 
   let pose = "No Pose";
   let acc = 0;
   let message = "Adjust posture";
 
-  // T-POSE
+  // T Pose
   if (lArm > 140 && rArm > 140) {
     pose = "🧍 T-Pose";
     acc = Math.min(accuracy(lArm, 180), accuracy(rArm, 180));
     message = acc > 75 ? "Perfect T pose" : "Straighten your arms";
   }
 
-  // WARRIOR II
+  // Warrior II
   else if (
     (lKnee > 70 && lKnee < 130) ||
     (rKnee > 70 && rKnee < 130)
@@ -146,7 +168,7 @@ function detectPose(lm) {
     message = acc > 75 ? "Strong warrior pose" : "Bend your front knee";
   }
 
-  // TREE POSE
+  // Tree Pose
   else {
     const ankleDiff = Math.abs(lm[27].y - lm[28].y);
     if (ankleDiff > 0.12) {
@@ -156,30 +178,35 @@ function detectPose(lm) {
     }
   }
 
-  // Stability lock
+  // Stability
   if (pose === stablePose) poseCounter++;
   else {
-    poseCounter = 0;
     stablePose = pose;
+    poseCounter = 0;
   }
 
   if (poseCounter > 10) {
     output.innerText = `${pose} | Accuracy: ${acc}%`;
-    drawText(`Pose: ${pose}`, 15, canvas.height - 45);
+    drawText(`Pose: ${pose}`, 15, canvas.height - 40);
     drawText(`Accuracy: ${acc}%`, 15, canvas.height - 20);
     speak(message);
     if (acc > 80) saveSession(pose, acc);
   }
 }
 
-// ---------- FRAME LOOP ----------
+// ---------- MAIN LOOP ----------
 holistic.onResults((results) => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+
+  ctx.save();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Mirror canvas ONCE
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+
   if (results.poseLandmarks) {
-    // Points
     results.poseLandmarks.forEach((p) => {
       ctx.beginPath();
       ctx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, 2 * Math.PI);
@@ -192,6 +219,8 @@ holistic.onResults((results) => {
   } else {
     output.innerText = "No person detected";
   }
+
+  ctx.restore();
 });
 
 // ---------- CAMERA ----------
