@@ -10,7 +10,7 @@ const ctx = canvas.getContext("2d");
 const output = document.getElementById("output");
 
 // ---------- DEVICE ----------
-
+const isMobile = window.innerWidth < 768;
 
 // ---------- VOICE ----------
 let lastSpoken = "";
