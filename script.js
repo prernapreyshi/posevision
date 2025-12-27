@@ -223,3 +223,13 @@ holistic.onResults((results) => {
   ctx.restore();
 });
 
+// ---------- CAMERA ----------
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await holistic.send({ image: video });
+  },
+  width: isMobile ? 360 : 640,
+  height: 480,
+});
+
+camera.start();
