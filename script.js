@@ -16,14 +16,7 @@ const isMobile = window.innerWidth < 768;
 let lastSpoken = "";
 
 // ---------- SPEAK ----------
-function speak(text) {
-  if (!text || text === lastSpoken) return;
-  lastSpoken = text;
-  speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 0.95;
-  speechSynthesis.speak(utter);
-}
+
 
 // ---------- MEDIAPIPE ----------
 const holistic = new Holistic({
