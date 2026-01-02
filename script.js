@@ -54,7 +54,10 @@ function smooth(key, val) {
   return history[key].reduce((a, b) => a + b, 0) / history[key].length;
 }
 
-
+// ---------- ACCURACY ----------
+function accuracy(current, ideal) {
+  return Math.max(0, Math.round(100 - Math.abs(current - ideal) * 1.5));
+}
 
 // ---------- SAVE SESSION ----------
 function saveSession(pose, acc) {
