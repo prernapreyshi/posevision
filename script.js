@@ -90,7 +90,12 @@ window.showSessions = function () {
   });
 };
 
-
+// ---------- CLEAR SESSIONS ----------
+window.clearSessions = function () {
+  localStorage.removeItem("poseSessions");
+  document.getElementById("sessionList").innerHTML =
+    "<li>All sessions cleared</li>";
+};
 
 // ---------- DRAW TEXT ----------
 function drawText(text, x, y) {
