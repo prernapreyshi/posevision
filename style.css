@@ -4,6 +4,13 @@ body {
   font-family: Arial, sans-serif;
 }
 
+video, canvas {
+  width: 640px;
+  height: 480px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
 
 canvas {
   pointer-events: none;
