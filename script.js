@@ -97,6 +97,12 @@ window.clearSessions = function () {
     "<li>All sessions cleared</li>";
 };
 
+// ---------- DRAW TEXT ----------
+function drawText(text, x, y) {
+  ctx.fillStyle = "white";
+  ctx.font = "15px Arial";
+  ctx.fillText(text, x, y);
+}
 
 // ---------- SKELETON ----------
 const connections = [
