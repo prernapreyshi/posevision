@@ -104,15 +104,7 @@ function drawText(text, x, y) {
   ctx.fillText(text, x, y);
 }
 
-// ---------- SKELETON ----------
-const connections = [
-  [11, 13], [13, 15],
-  [12, 14], [14, 16],
-  [11, 12],
-  [11, 23], [12, 24],
-  [23, 25], [25, 27],
-  [24, 26], [26, 28],
-];
+
 
 function drawSkeleton(lm) {
   ctx.strokeStyle = "lime";
