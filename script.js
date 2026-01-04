@@ -125,9 +125,6 @@ function drawSkeleton(lm) {
   });
 }
 
-// ---------- STABILITY ----------
-let stablePose = "";
-let poseCounter = 0;
 
 // ---------- POSE DETECTION ----------
 function detectPose(lm) {
