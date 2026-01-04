@@ -151,13 +151,7 @@ function detectPose(lm) {
   let acc = 0;
   let message = "Adjust posture";
 
-  // T Pose
-  if (lArm > 140 && rArm > 140) {
-    pose = "🧍 T-Pose";
-    acc = Math.min(accuracy(lArm, 180), accuracy(rArm, 180));
-    message = acc > 75 ? "Perfect T pose" : "Straighten your arms";
-  }
-
+  
   // Warrior II
   else if (
     (lKnee > 70 && lKnee < 130) ||
