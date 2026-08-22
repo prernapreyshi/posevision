@@ -219,7 +219,6 @@ holistic.onResults((results) => {
   } else {
     output.innerText = "No person detected";
   }
-
   ctx.restore();
 });
 
