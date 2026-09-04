@@ -1,7 +1,3 @@
-/*************************************************
- * REAL-TIME POSE DETECTION (FINAL)
- * MediaPipe Holistic + JavaScript
- *************************************************/
 
 // ---------- ELEMENTS ----------
 const video = document.getElementById("video");
