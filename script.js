@@ -226,5 +226,4 @@ const camera = new Camera(video, {
   width: isMobile ? 360 : 640,
   height: 480,
 });
-
 camera.start();
